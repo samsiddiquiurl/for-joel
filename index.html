@@ -628,9 +628,10 @@ ul.styled li::before {
 <!-- Welcome Overlay -->
 <div class="welcome-overlay" id="welcomeOverlay">
   <div class="welcome-icon">⚙</div>
-  <h2>Your Marketing Plan Is Ready</h2>
-  <p>Sam has prepared an interactive walkthrough of your complete marketing strategy. Click play and the page will scroll with the audio as you listen.</p>
+  <h2 id="welcomeTitle">Your Marketing Plan Is Ready</h2>
+  <p id="welcomeText">Sam has prepared an interactive walkthrough of your complete marketing strategy. Click play and the page will scroll with the audio as you listen.</p>
   <button class="play-btn" id="playBtn">▶ &nbsp;Play Walkthrough</button>
+  <button class="play-btn" id="resumeBtn" style="display:none; background: var(--bg-card); border: 1px solid var(--accent-primary); margin-top: 12px;">Resume Where You Left Off</button>
   <a class="skip-link" id="skipBtn">Read without audio →</a>
 </div>
 
@@ -1329,45 +1330,98 @@ ul.styled li::before {
 
 <script>
 // ==========================================
-// WELCOME OVERLAY
+// SESSION STORAGE — RESUME / RESTART
 // ==========================================
+var savedTime = sessionStorage.getItem('joel_audio_time');
+var savedScroll = sessionStorage.getItem('joel_scroll_pos');
+var hasSavedSession = savedTime && parseFloat(savedTime) > 5;
+
 var welcomeOverlay = document.getElementById('welcomeOverlay');
 var playBtn = document.getElementById('playBtn');
+var resumeBtn = document.getElementById('resumeBtn');
 var skipBtn = document.getElementById('skipBtn');
 var mainAudio = document.getElementById('mainAudio');
+var welcomeTitle = document.getElementById('welcomeTitle');
+var welcomeText = document.getElementById('welcomeText');
 
-playBtn.addEventListener('click', function() {
+// If there's a saved session, show the resume option
+if (hasSavedSession) {
+  var savedMins = Math.floor(parseFloat(savedTime) / 60);
+  var savedSecs = Math.round(parseFloat(savedTime) % 60);
+  welcomeTitle.textContent = 'Welcome Back';
+  welcomeText.textContent = 'You were ' + savedMins + 'm ' + savedSecs + 's into the walkthrough. Would you like to pick up where you left off or start fresh?';
+  playBtn.textContent = '▶  Start from Scratch';
+  resumeBtn.style.display = 'inline-flex';
+}
+
+function dismissOverlay() {
   welcomeOverlay.classList.add('hidden');
   setTimeout(function() {
     welcomeOverlay.style.display = 'none';
   }, 500);
+}
+
+// Start from scratch
+playBtn.addEventListener('click', function() {
+  sessionStorage.removeItem('joel_audio_time');
+  sessionStorage.removeItem('joel_scroll_pos');
+  window.scrollTo(0, 0);
+  mainAudio.currentTime = 0;
+  dismissOverlay();
   mainAudio.play();
 });
 
+// Resume where left off
+resumeBtn.addEventListener('click', function() {
+  var resumeTime = parseFloat(savedTime) || 0;
+  var resumeScroll = parseFloat(savedScroll) || 0;
+  mainAudio.currentTime = resumeTime;
+  window.scrollTo(0, resumeScroll);
+  dismissOverlay();
+  mainAudio.play();
+});
+
+// Skip audio
 skipBtn.addEventListener('click', function() {
-  welcomeOverlay.classList.add('hidden');
-  setTimeout(function() {
-    welcomeOverlay.style.display = 'none';
-  }, 500);
+  if (hasSavedSession) {
+    window.scrollTo(0, parseFloat(savedScroll) || 0);
+  }
+  dismissOverlay();
+});
+
+// Save position periodically
+setInterval(function() {
+  if (mainAudio && !mainAudio.paused) {
+    sessionStorage.setItem('joel_audio_time', mainAudio.currentTime.toString());
+    sessionStorage.setItem('joel_scroll_pos', window.scrollY.toString());
+  }
+}, 2000);
+
+// Save position on page leave
+window.addEventListener('beforeunload', function() {
+  if (mainAudio) {
+    sessionStorage.setItem('joel_audio_time', mainAudio.currentTime.toString());
+    sessionStorage.setItem('joel_scroll_pos', window.scrollY.toString());
+  }
 });
 
 // ==========================================
 // STICKY AUDIO BAR SHADOW
 // ==========================================
-const audioBar = document.getElementById('audioBar');
-window.addEventListener('scroll', () => {
+var audioBarEl = document.getElementById('audioBar');
+window.addEventListener('scroll', function() {
   if (window.scrollY > 20) {
-    audioBar.classList.add('scrolled');
+    audioBarEl.classList.add('scrolled');
   } else {
-    audioBar.classList.remove('scrolled');
+    audioBarEl.classList.remove('scrolled');
   }
 });
 
 // ==========================================
 // FADE-IN SECTIONS ON SCROLL
 // ==========================================
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
+var fadeObserver = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
     if (entry.isIntersecting) {
       entry.target.style.opacity = '1';
       entry.target.style.transform = 'translateY(0)';
@@ -1375,11 +1429,11 @@ const observer = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.1 });
 
-document.querySelectorAll('.section, .cta-section').forEach(el => {
+document.querySelectorAll('.section, .cta-section').forEach(function(el) {
   el.style.opacity = '0';
   el.style.transform = 'translateY(20px)';
   el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-  observer.observe(el);
+  fadeObserver.observe(el);
 });
 
 // ==========================================
@@ -1393,6 +1447,7 @@ document.querySelectorAll('.section, .cta-section').forEach(el => {
   var userScrollTimeout = null;
   var isUserScrolling = false;
   var scrollDelayTimer = null;
+  var lastTargetY = -1;
 
   // Detect user scroll — pause auto-scroll
   function onUserScroll() {
@@ -1420,11 +1475,15 @@ document.querySelectorAll('.section, .cta-section').forEach(el => {
       var maxScroll = document.body.scrollHeight - window.innerHeight;
       var targetY = progress * maxScroll;
       var currentY = window.scrollY;
-      var diff = targetY - currentY;
 
-      // Smooth easing — 1.5% of the difference per frame (50% slower)
-      if (Math.abs(diff) > 1) {
-        window.scrollTo(0, currentY + diff * 0.015);
+      // Only scroll forward, never backward
+      if (targetY > currentY) {
+        var diff = targetY - currentY;
+
+        // Smooth easing — 1.5% of the difference per frame (50% of original)
+        if (diff > 1) {
+          window.scrollTo(0, currentY + diff * 0.015);
+        }
       }
     }
     requestAnimationFrame(autoScrollLoop);
