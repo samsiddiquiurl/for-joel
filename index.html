@@ -543,9 +543,97 @@ ul.styled li::before {
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: 1fr; }
 }
+/* Welcome Overlay */
+.welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 12, 16, 0.97);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  transition: opacity 0.5s ease;
+}
+.welcome-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.welcome-overlay .welcome-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--gradient-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 28px;
+  animation: fadeInDown 0.8s ease;
+}
+.welcome-overlay h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  animation: fadeInUp 0.8s ease 0.1s both;
+}
+.welcome-overlay p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  max-width: 440px;
+  margin-bottom: 32px;
+  animation: fadeInUp 0.8s ease 0.2s both;
+}
+.welcome-overlay .play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 40px;
+  background: var(--gradient-accent);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(46,134,171,0.3);
+  animation: fadeInUp 0.8s ease 0.3s both;
+}
+.welcome-overlay .play-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(46,134,171,0.4);
+}
+.welcome-overlay .skip-link {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  animation: fadeInUp 0.8s ease 0.4s both;
+}
+.welcome-overlay .skip-link:hover {
+  color: var(--text-secondary);
+}
 </style>
 </head>
 <body>
+
+<!-- Welcome Overlay -->
+<div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-icon">⚙</div>
+  <h2>Your Marketing Plan Is Ready</h2>
+  <p>Sam has prepared an interactive walkthrough of your complete marketing strategy. Click play and the page will scroll with the audio as you listen.</p>
+  <button class="play-btn" id="playBtn">▶ &nbsp;Play Walkthrough</button>
+  <a class="skip-link" id="skipBtn">Read without audio →</a>
+</div>
 
 <!-- Sticky Audio Bar -->
 <div class="audio-bar" id="audioBar">
@@ -554,8 +642,7 @@ ul.styled li::before {
     <div class="audio-title">Sam — Strategy Walkthrough</div>
     <div class="audio-subtitle">Play while you read</div>
   </div>
-  <!-- Replace the placeholder below with: <audio controls autoplay src="audio.mp3"></audio> -->
-  <div class="audio-placeholder">⏵ &nbsp;Audio walkthrough — loading soon</div>
+  <audio controls id="mainAudio" src="audio.mp3"></audio>
 </div>
 
 <div class="container">
@@ -1239,7 +1326,32 @@ ul.styled li::before {
 </div>
 
 <script>
-// Sticky audio bar shadow on scroll
+// ==========================================
+// WELCOME OVERLAY
+// ==========================================
+var welcomeOverlay = document.getElementById('welcomeOverlay');
+var playBtn = document.getElementById('playBtn');
+var skipBtn = document.getElementById('skipBtn');
+var mainAudio = document.getElementById('mainAudio');
+
+playBtn.addEventListener('click', function() {
+  welcomeOverlay.classList.add('hidden');
+  setTimeout(function() {
+    welcomeOverlay.style.display = 'none';
+  }, 500);
+  mainAudio.play();
+});
+
+skipBtn.addEventListener('click', function() {
+  welcomeOverlay.classList.add('hidden');
+  setTimeout(function() {
+    welcomeOverlay.style.display = 'none';
+  }, 500);
+});
+
+// ==========================================
+// STICKY AUDIO BAR SHADOW
+// ==========================================
 const audioBar = document.getElementById('audioBar');
 window.addEventListener('scroll', () => {
   if (window.scrollY > 20) {
@@ -1249,7 +1361,9 @@ window.addEventListener('scroll', () => {
   }
 });
 
-// Fade-in sections on scroll
+// ==========================================
+// FADE-IN SECTIONS ON SCROLL
+// ==========================================
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
@@ -1270,12 +1384,11 @@ document.querySelectorAll('.section, .cta-section').forEach(el => {
 // AUTO-SCROLL SYNCED TO AUDIO
 // ==========================================
 (function() {
-  var audio = document.querySelector('.audio-bar audio');
+  var audio = document.getElementById('mainAudio');
   if (!audio) return;
 
   var isAutoScrolling = true;
   var userScrollTimeout = null;
-  var lastScrollTime = 0;
   var isUserScrolling = false;
 
   // Detect user scroll — pause auto-scroll
