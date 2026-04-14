@@ -1476,11 +1476,8 @@ document.querySelectorAll('.section, .cta-section').forEach(function(el) {
       var currentY = window.scrollY;
 
       if (targetY > currentY) {
-        var diff = targetY - currentY;
-        // 1.5% easing per frame — 50% of original Firebird speed
-        if (diff > 1) {
-          window.scrollTo(0, currentY + diff * 0.007);
-        }
+        // Constant speed — fixed 0.5 pixels per frame, always the same pace
+        window.scrollTo(0, currentY + 0.5);
       }
     }
     requestAnimationFrame(autoScrollLoop);
