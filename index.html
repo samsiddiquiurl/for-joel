@@ -1335,6 +1335,7 @@ ul.styled li::before {
 var savedTime = sessionStorage.getItem('joel_audio_time');
 var savedScroll = sessionStorage.getItem('joel_scroll_pos');
 var hasSavedSession = savedTime && parseFloat(savedTime) > 5;
+var isResumeMode = false;
 
 var welcomeOverlay = document.getElementById('welcomeOverlay');
 var playBtn = document.getElementById('playBtn');
@@ -1344,13 +1345,13 @@ var mainAudio = document.getElementById('mainAudio');
 var welcomeTitle = document.getElementById('welcomeTitle');
 var welcomeText = document.getElementById('welcomeText');
 
-// If there's a saved session, show the resume option
+// If there's a saved session, show resume option
 if (hasSavedSession) {
   var savedMins = Math.floor(parseFloat(savedTime) / 60);
   var savedSecs = Math.round(parseFloat(savedTime) % 60);
   welcomeTitle.textContent = 'Welcome Back';
-  welcomeText.textContent = 'You were ' + savedMins + 'm ' + savedSecs + 's into the walkthrough. Would you like to pick up where you left off or start fresh?';
-  playBtn.textContent = '▶  Start from Scratch';
+  welcomeText.textContent = 'You were ' + savedMins + 'm ' + savedSecs + 's into the walkthrough. Would you like to start from the beginning or resume where you left off?';
+  playBtn.textContent = '▶  Start from the Beginning';
   resumeBtn.style.display = 'inline-flex';
 }
 
@@ -1361,8 +1362,9 @@ function dismissOverlay() {
   }, 500);
 }
 
-// Start from scratch
+// Start from the beginning
 playBtn.addEventListener('click', function() {
+  isResumeMode = false;
   sessionStorage.removeItem('joel_audio_time');
   sessionStorage.removeItem('joel_scroll_pos');
   window.scrollTo(0, 0);
@@ -1371,8 +1373,9 @@ playBtn.addEventListener('click', function() {
   mainAudio.play();
 });
 
-// Resume where left off
+// Resume where you left off
 resumeBtn.addEventListener('click', function() {
+  isResumeMode = true;
   var resumeTime = parseFloat(savedTime) || 0;
   var resumeScroll = parseFloat(savedScroll) || 0;
   mainAudio.currentTime = resumeTime;
@@ -1445,20 +1448,16 @@ document.querySelectorAll('.section, .cta-section').forEach(function(el) {
 
   var isAutoScrolling = false;
   var userScrollTimeout = null;
-  var isUserScrolling = false;
   var scrollDelayTimer = null;
-  var lastTargetY = -1;
 
   // Detect user scroll — pause auto-scroll
   function onUserScroll() {
     if (!isAutoScrolling) return;
-    isUserScrolling = true;
     isAutoScrolling = false;
     clearTimeout(userScrollTimeout);
     // Resume auto-scroll after 5 seconds of no user scrolling
     userScrollTimeout = setTimeout(function() {
       isAutoScrolling = true;
-      isUserScrolling = false;
     }, 5000);
   }
 
@@ -1468,7 +1467,7 @@ document.querySelectorAll('.section, .cta-section').forEach(function(el) {
     if ([32, 33, 34, 38, 40].indexOf(e.keyCode) !== -1) onUserScroll();
   });
 
-  // Auto-scroll loop
+  // Auto-scroll loop — only scrolls forward, never backward
   function autoScrollLoop() {
     if (audio && !audio.paused && isAutoScrolling && audio.duration) {
       var progress = audio.currentTime / audio.duration;
@@ -1476,11 +1475,9 @@ document.querySelectorAll('.section, .cta-section').forEach(function(el) {
       var targetY = progress * maxScroll;
       var currentY = window.scrollY;
 
-      // Only scroll forward, never backward
       if (targetY > currentY) {
         var diff = targetY - currentY;
-
-        // Smooth easing — 1.5% of the difference per frame (50% of original)
+        // 1.5% easing per frame — 50% of original Firebird speed
         if (diff > 1) {
           window.scrollTo(0, currentY + diff * 0.015);
         }
@@ -1490,17 +1487,21 @@ document.querySelectorAll('.section, .cta-section').forEach(function(el) {
   }
   requestAnimationFrame(autoScrollLoop);
 
-  // Start auto-scroll 30 seconds after audio begins playing
+  // When audio plays, set the correct delay based on mode
   audio.addEventListener('play', function() {
-    isUserScrolling = false;
     clearTimeout(userScrollTimeout);
     clearTimeout(scrollDelayTimer);
+
+    // Resume mode: 2 second delay
+    // Fresh start mode: 40 second delay
+    var delay = isResumeMode ? 2000 : 40000;
+
     scrollDelayTimer = setTimeout(function() {
       isAutoScrolling = true;
-    }, 30000);
+    }, delay);
   });
 
-  // Pause auto-scroll when audio is paused
+  // When audio pauses, stop auto-scroll and clear timers
   audio.addEventListener('pause', function() {
     isAutoScrolling = false;
     clearTimeout(scrollDelayTimer);
